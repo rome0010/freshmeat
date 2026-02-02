@@ -223,7 +223,7 @@ recognition.onend = () => {
 recognition.onresult = e => {
     const text = e.results[0][0].transcript;
     transcript.innerHTML += `<p><span class="user-text">You:</span> ${text}</p>`;
-    processCommand(text); // <-- dito na ginagamit ang bagong function
+    speechSynthesis.speak(new SpeechSynthesisUtterance("You said " + text));
 };
 function clearTranscript() {
     transcript.innerHTML = "";
