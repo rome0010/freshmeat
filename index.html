@@ -12,18 +12,18 @@
     box-sizing: border-box;
 }
 
-/* ===== BACKGROUND (UPDATED RGB GAMING) ===== */
+/* ===== BACKGROUND (VIBRANT GREEN GAMING) ===== */
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 
     background: linear-gradient(
         270deg,
-        #020617,
-        #003f2d,
-        #00ff66,
-        #00ffff,
-        #003f2d,
-        #020617
+        #0a0f0a,
+        #00ff41,
+        #39ff14,
+        #00ff88,
+        #00ff41,
+        #0a0f0a
     );
     background-size: 600% 600%;
     animation: rgbBackground 20s ease infinite;
@@ -44,27 +44,27 @@ body {
 
 /* ===== CARD ===== */
 .container {
-    background: #020617;
+    background: #0a0f0a;
     border-radius: 20px;
-    box-shadow: 0 0 40px rgba(0,255,102,0.25);
+    box-shadow: 0 0 50px rgba(57,255,20,0.4);
     padding: 30px;
     max-width: 500px;
     width: 100%;
-    color: #E5FFE9;
+    color: #d0ffd0;
 }
 
 /* ===== TEXT ===== */
 h1 {
     text-align: center;
-    color: #00FF66;
+    color: #39ff14;
     margin-bottom: 10px;
     font-size: 28px;
-    text-shadow: 0 0 10px #00FF66;
+    text-shadow: 0 0 15px #39ff14;
 }
 
 .subtitle {
     text-align: center;
-    color: #9AE6B4;
+    color: #00ff88;
     margin-bottom: 30px;
     font-size: 14px;
 }
@@ -74,20 +74,20 @@ h1 {
     width: 120px;
     height: 120px;
     border-radius: 50%;
-    background: radial-gradient(circle, #00FF66, #1F7A5C);
+    background: radial-gradient(circle, #39ff14, #00cc00);
     border: none;
-    color: #022C22;
+    color: #0a0f0a;
     font-size: 50px;
     cursor: pointer;
     display: block;
     margin: 0 auto 20px;
-    box-shadow: 0 0 30px #00FF66;
+    box-shadow: 0 0 40px #39ff14;
     transition: 0.3s;
 }
 
 .mic-button:hover {
     transform: scale(1.08);
-    box-shadow: 0 0 50px #00FF66;
+    box-shadow: 0 0 60px #39ff14;
 }
 
 .mic-button.listening {
@@ -104,32 +104,32 @@ h1 {
 .status {
     text-align: center;
     padding: 15px;
-    background: #020617;
-    border: 1px solid #00FF66;
+    background: #0a0f0a;
+    border: 1px solid #39ff14;
     border-radius: 10px;
     margin-bottom: 20px;
-    color: #00FF66;
+    color: #39ff14;
 }
 
 /* ===== TRANSCRIPT ===== */
 .transcript {
-    background: #020617;
+    background: #0a0f0a;
     border-radius: 10px;
     padding: 15px;
     margin-bottom: 20px;
     min-height: 80px;
     max-height: 200px;
     overflow-y: auto;
-    border: 1px solid #1F7A5C;
+    border: 1px solid #00cc00;
 }
 
 .user-text {
-    color: #00FF66;
+    color: #39ff14;
     font-weight: 600;
 }
 
 .assistant-text {
-    color: #1F7A5C;
+    color: #00ff88;
     font-weight: 600;
 }
 
@@ -139,34 +139,34 @@ h1 {
     padding: 12px;
     border-radius: 10px;
     border: none;
-    background: #0B3D2E;
-    color: #00FF66;
+    background: #1a3a1a;
+    color: #39ff14;
     font-weight: 600;
     cursor: pointer;
 }
 
 .btn-clear:hover {
-    background: #00FF66;
-    color: #022C22;
+    background: #39ff14;
+    color: #0a0f0a;
 }
 
 /* ===== FEATURES ===== */
 .features {
     margin-top: 20px;
     padding: 15px;
-    background: #020617;
+    background: #0a0f0a;
     border-radius: 10px;
     font-size: 12px;
-    border: 1px solid #1F7A5C;
+    border: 1px solid #00cc00;
 }
 
 .features h3 {
-    color: #00FF66;
+    color: #39ff14;
 }
 
 .features li::before {
     content: "✓ ";
-    color: #00FF66;
+    color: #39ff14;
 }
 </style>
 </head>
@@ -180,7 +180,7 @@ h1 {
     <div class="status" id="status">Ready to listen...</div>
 
     <div class="transcript" id="transcript">
-        <p style="text-align:center;color:#4ADE80;">Your conversation will appear here...</p>
+        <p style="text-align:center;color:#00ff88;">Your conversation will appear here...</p>
     </div>
 
     <button class="btn-clear" onclick="clearTranscript()">Clear History</button>
