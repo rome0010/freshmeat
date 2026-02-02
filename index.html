@@ -221,16 +221,24 @@ recognition.onend = () => {
 
 recognition.onresult = e => {
     const text = e.results[0][0].transcript;
-    transcript.innerHTML += `<p><span class="user-text">You:</span> ${text}</p>`;
-    
-    // dito na natin pinoprocess ang command
+    addToTranscript('You', text);
     processCommand(text);
 };
 
-// ===== Helper function para magsalita at mag-log =====
+// ===== Helper para sa transcript =====
+function addToTranscript(speaker, message) {
+    const p = document.createElement('p');
+    p.innerHTML = `<span class="${speaker === 'You' ? 'user-text' : 'assistant-text'}">${speaker}:</span> ${message}`;
+    transcript.appendChild(p);
+    transcript.scrollTop = transcript.scrollHeight;
+}
+
 function speak(message) {
-    transcript.innerHTML += `<p><span class="assistant-text">Assistant:</span> ${message}</p>`;
+    addToTranscript('Assistant', message);
     const utterance = new SpeechSynthesisUtterance(message);
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+    utterance.volume = 1;
     speechSynthesis.speak(utterance);
 }
 
@@ -238,18 +246,18 @@ function clearTranscript() {
     transcript.innerHTML = "";
 }
 
-// ===== TIMER / ALARM =====
+// ===== Timer / Alarm =====
 let activeTimer;
 
 function processCommand(command) {
-    const cmd = command.toLowerCase();
+    const cmd = command.toLowerCase().trim();
 
     // ===== TIMER =====
     if (cmd.includes('timer for')) {
         const timeMatch = cmd.match(/(\d+)\s*(second|seconds|minute|minutes)/);
         if (timeMatch) {
             let value = parseInt(timeMatch[1]);
-            let unit = timeMatch[2].startsWith('second') ? 1000 : 60000; // seconds o minutes
+            let unit = timeMatch[2].startsWith('second') ? 1000 : 60000;
             speak(`Setting a timer for ${value} ${timeMatch[2]}`);
             
             clearTimeout(activeTimer);
@@ -293,19 +301,27 @@ function processCommand(command) {
         return;
     }
 
-    // ===== Iba pang commands (halimbawa jokes, calculator) =====
+    // ===== JOKE =====
     if (cmd.includes('joke')) {
-        speak("Why don't programmers like nature? It has too many bugs! 😂");
+        const jokes = [
+            "Why don't programmers like nature? It has too many bugs! 😂",
+            "Why did the developer go broke? He used up all his cache!",
+            "How do programmers enjoy nature? They log it!"
+        ];
+        speak(jokes[Math.floor(Math.random() * jokes.length)]);
         return;
     }
 
+    // ===== TIME =====
     if (cmd.includes('time')) {
         const now = new Date();
-        speak(`The current time is ${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}`);
+        const hours = now.getHours();
+        const minutes = now.getMinutes().toString().padStart(2,'0');
+        speak(`The current time is ${hours}:${minutes}`);
         return;
     }
 
-    // Default response
+    // ===== DEFAULT =====
     speak(`I heard you say: ${command}`);
 }
 </script>
