@@ -195,7 +195,6 @@ h1 {
         </ul>
     </div>
 </div>
-
 <script>
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const recognition = new SpeechRecognition();
@@ -223,8 +222,18 @@ recognition.onend = () => {
 recognition.onresult = e => {
     const text = e.results[0][0].transcript;
     transcript.innerHTML += `<p><span class="user-text">You:</span> ${text}</p>`;
-    speechSynthesis.speak(new SpeechSynthesisUtterance("You said " + text));
+    
+    // dito na natin pinoprocess ang command
+    processCommand(text);
 };
+
+// ===== Helper function para magsalita at mag-log =====
+function speak(message) {
+    transcript.innerHTML += `<p><span class="assistant-text">Assistant:</span> ${message}</p>`;
+    const utterance = new SpeechSynthesisUtterance(message);
+    speechSynthesis.speak(utterance);
+}
+
 function clearTranscript() {
     transcript.innerHTML = "";
 }
@@ -240,7 +249,7 @@ function processCommand(command) {
         const timeMatch = cmd.match(/(\d+)\s*(second|seconds|minute|minutes)/);
         if (timeMatch) {
             let value = parseInt(timeMatch[1]);
-            let unit = timeMatch[2].startsWith('second') ? 1000 : 60000; // seconds or minutes
+            let unit = timeMatch[2].startsWith('second') ? 1000 : 60000; // seconds o minutes
             speak(`Setting a timer for ${value} ${timeMatch[2]}`);
             
             clearTimeout(activeTimer);
@@ -284,10 +293,20 @@ function processCommand(command) {
         return;
     }
 
-    // ===== EXISTING COMMAND =====
-    // dito mo pa rin ilagay yung iba mong commands, like jokes, calculator, etc.
-    transcript.innerHTML += `<p><span class="assistant-text">Assistant:</span> I heard you say: ${command}</p>`;
-    speechSynthesis.speak(new SpeechSynthesisUtterance(command));
+    // ===== Iba pang commands (halimbawa jokes, calculator) =====
+    if (cmd.includes('joke')) {
+        speak("Why don't programmers like nature? It has too many bugs! 😂");
+        return;
+    }
+
+    if (cmd.includes('time')) {
+        const now = new Date();
+        speak(`The current time is ${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}`);
+        return;
+    }
+
+    // Default response
+    speak(`I heard you say: ${command}`);
 }
 </script>
 </body>
