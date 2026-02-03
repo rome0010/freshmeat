@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Voice Assistant</title>
+    <title>AI Voice Assistant - Pudie</title>
     <style>
         * {
             margin: 0;
@@ -107,6 +107,65 @@
             border-color: #00c8ff;
             color: #00c8ff;
             box-shadow: 0 0 15px rgba(0, 200, 255, 0.3);
+        }
+
+        .active-list {
+            background: rgba(0, 255, 136, 0.05);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            min-height: 60px;
+        }
+
+        .active-list h3 {
+            font-size: 14px;
+            color: #00ff88;
+            margin-bottom: 10px;
+            text-shadow: 0 0 5px rgba(0, 255, 136, 0.3);
+        }
+
+        .timer-item, .alarm-item {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            border-radius: 8px;
+            padding: 10px;
+            margin: 8px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #66ffaa;
+        }
+
+        .timer-countdown {
+            font-size: 18px;
+            font-weight: bold;
+            color: #00ff88;
+            text-shadow: 0 0 5px rgba(0, 255, 136, 0.5);
+        }
+
+        .alarm-time {
+            font-size: 16px;
+            font-weight: bold;
+            color: #ffc800;
+            text-shadow: 0 0 5px rgba(255, 200, 0, 0.5);
+        }
+
+        .delete-btn {
+            background: rgba(255, 0, 85, 0.2);
+            border: 1px solid #ff0055;
+            color: #ff6699;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+            margin-left: 10px;
+        }
+
+        .delete-btn:hover {
+            background: rgba(255, 0, 85, 0.4);
+            transform: scale(1.05);
         }
 
         .transcript {
@@ -216,7 +275,6 @@
             display: none;
         }
 
-        /* Custom scrollbar for gaming look */
         .transcript::-webkit-scrollbar {
             width: 8px;
         }
@@ -233,6 +291,23 @@
 
         .transcript::-webkit-scrollbar-thumb:hover {
             background: #00cc6a;
+        }
+
+        .stop-alert-btn {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid white;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .stop-alert-btn:hover {
+            background: rgba(255, 255, 255, 0.4);
+            transform: scale(1.05);
         }
 
         @media (max-width: 480px) {
@@ -254,7 +329,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>HELLO! IM PUDIE</h1>
+        <h1>HELLO! I'M PUDIE</h1>
         <p class="subtitle">Tap the microphone and start talking</p>
 
         <div class="error" id="error"></div>
@@ -262,6 +337,12 @@
         <button class="mic-button" id="micButton">🎤</button>
 
         <div class="status" id="status">Ready to listen...</div>
+
+        <div class="active-list" id="activeList">
+            <h3>⏰ Active Timers & Alarms</h3>
+            <div id="timersList"></div>
+            <div id="alarmsList"></div>
+        </div>
 
         <div class="transcript" id="transcript">
             <p style="text-align: center; color: #88ffbb;">Your conversation will appear here...</p>
@@ -278,14 +359,12 @@
                 <li>Set timer and alarm</li>
                 <li>Calculator (e.g., "25 + 75")</li>
                 <li>Tell jokes</li>
-                <li>Search Wikipedia</li>
                 <li>Open websites</li>
             </ul>
         </div>
     </div>
 
     <script>
-        // Check browser support
         if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
             document.getElementById('error').style.display = 'block';
             document.getElementById('error').textContent = 'Sorry, your browser does not support speech recognition. Please use Chrome, Edge, or Safari.';
@@ -301,155 +380,230 @@
         const micButton = document.getElementById('micButton');
         const status = document.getElementById('status');
         const transcript = document.getElementById('transcript');
+        const timersList = document.getElementById('timersList');
+        const alarmsList = document.getElementById('alarmsList');
         let isListening = false;
         
-        // ============ ALARM AND TIMER VARIABLES ============
-    let activeAlarms = [];
-    let activeTimers = [];
-    let alarmCheckInterval = null;
+        let activeAlarms = [];
+        let activeTimers = [];
+        let alarmCheckInterval = null;
+        let timerUpdateInterval = null;
 
-// ============ ALARM AND TIMER FUNCTIONS ============
-    function startTimer(seconds, message = "Timer finished") {
-        const timerId = Date.now();
-        const endTime = Date.now() + (seconds * 1000);
-        
-        const timer = {
-            id: timerId,
-            endTime: endTime,
-            message: message,
-            seconds: seconds
-        };
-        
-        activeTimers.push(timer);
-        
-        setTimeout(() => {
-            timerAlert(message);
-            removeTimer(timerId);
-        }, seconds * 1000);
-        
-        return timerId;
-    }
-    function timerAlert(message) {
-        speak(`Timer alert! ${message}`);
-        
-        const alertDiv = document.createElement('div');
-        alertDiv.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(255, 0, 85, 0.95);
-            color: white;
-            padding: 30px;
-            border-radius: 15px;
-            font-size: 24px;
-            font-weight: bold;
-            z-index: 10000;
-            box-shadow: 0 0 50px rgba(255, 0, 85, 0.8);
-            animation: pulse 1s infinite;
-        `;
-        alertDiv.textContent = `⏰ ${message}`;
-        document.body.appendChild(alertDiv);
-        
-        setTimeout(() => {
-            alertDiv.remove();
-        }, 5000);
-    }
-
-    function removeTimer(timerId) {
-        activeTimers = activeTimers.filter(t => t.id !== timerId);
-    }
-
-    function setAlarm(hour, minute, message = "Alarm", repeat = false, days = []) {
-        const alarmId = Date.now();
-        
-        const alarm = {
-            id: alarmId,
-            hour: hour,
-            minute: minute,
-            message: message,
-            repeat: repeat,
-            days: days,
-            enabled: true
-        };
-        
-        activeAlarms.push(alarm);
-        
-        if (!alarmCheckInterval) {
-            alarmCheckInterval = setInterval(checkAlarms, 1000);
+        function updateTimersDisplay() {
+            if (activeTimers.length === 0) {
+                timersList.innerHTML = '<p style="color: #88ffbb; font-size: 12px; margin: 5px 0;">No active timers</p>';
+            } else {
+                timersList.innerHTML = activeTimers.map(timer => {
+                    const remaining = Math.max(0, Math.floor((timer.endTime - Date.now()) / 1000));
+                    const minutes = Math.floor(remaining / 60);
+                    const seconds = remaining % 60;
+                    return `
+                        <div class="timer-item">
+                            <span>${timer.message}</span>
+                            <div>
+                                <span class="timer-countdown">${minutes}:${seconds.toString().padStart(2, '0')}</span>
+                                <button class="delete-btn" onclick="cancelTimer(${timer.id})">✕</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
         }
-        
-        return alarmId;
-    }
 
-    function checkAlarms() {
-        const now = new Date();
-        const currentHour = now.getHours();
-        const currentMinute = now.getMinutes();
-        const currentSecond = now.getSeconds();
-        const currentDay = now.getDay();
-        
-        activeAlarms.forEach(alarm => {
-            if (!alarm.enabled) return;
+        function updateAlarmsDisplay() {
+            if (activeAlarms.length === 0) {
+                alarmsList.innerHTML = '<p style="color: #88ffbb; font-size: 12px; margin: 5px 0;">No active alarms</p>';
+            } else {
+                alarmsList.innerHTML = activeAlarms.map(alarm => {
+                    const timeString = `${alarm.hour % 12 || 12}:${alarm.minute.toString().padStart(2, '0')} ${alarm.hour >= 12 ? 'PM' : 'AM'}`;
+                    return `
+                        <div class="alarm-item">
+                            <span>Alarm: ${timeString}</span>
+                            <button class="delete-btn" onclick="cancelAlarm(${alarm.id})">✕</button>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        function startTimer(seconds, message = "Timer finished") {
+            const timerId = Date.now();
+            const endTime = Date.now() + (seconds * 1000);
             
-            if (alarm.hour === currentHour && alarm.minute === currentMinute && currentSecond === 0) {
-                if (alarm.repeat && alarm.days.length > 0) {
-                    if (alarm.days.includes(currentDay)) {
+            const timer = {
+                id: timerId,
+                endTime: endTime,
+                message: message,
+                seconds: seconds,
+                timeout: setTimeout(() => {
+                    timerAlert(message);
+                    removeTimer(timerId);
+                }, seconds * 1000)
+            };
+            
+            activeTimers.push(timer);
+            updateTimersDisplay();
+            
+            if (!timerUpdateInterval) {
+                timerUpdateInterval = setInterval(updateTimersDisplay, 1000);
+            }
+            
+            return timerId;
+        }
+
+        function timerAlert(message) {
+            speak(`Timer alert! ${message}`);
+            
+            const alertDiv = document.createElement('div');
+            alertDiv.id = 'currentAlert';
+            alertDiv.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: rgba(255, 0, 85, 0.95);
+                color: white;
+                padding: 30px;
+                border-radius: 15px;
+                font-size: 24px;
+                font-weight: bold;
+                z-index: 10000;
+                box-shadow: 0 0 50px rgba(255, 0, 85, 0.8);
+                animation: pulse 1s infinite;
+                text-align: center;
+            `;
+            alertDiv.innerHTML = `
+                ⏰ ${message}
+                <button class="stop-alert-btn" onclick="dismissAlert()">STOP</button>
+            `;
+            document.body.appendChild(alertDiv);
+        }
+
+        function removeTimer(timerId) {
+            const timer = activeTimers.find(t => t.id === timerId);
+            if (timer && timer.timeout) {
+                clearTimeout(timer.timeout);
+            }
+            activeTimers = activeTimers.filter(t => t.id !== timerId);
+            updateTimersDisplay();
+            
+            if (activeTimers.length === 0 && timerUpdateInterval) {
+                clearInterval(timerUpdateInterval);
+                timerUpdateInterval = null;
+            }
+        }
+
+        function cancelTimer(timerId) {
+            removeTimer(timerId);
+            speak("Timer cancelled");
+        }
+
+        function setAlarm(hour, minute, message = "Alarm", repeat = false, days = []) {
+            const alarmId = Date.now();
+            
+            const alarm = {
+                id: alarmId,
+                hour: hour,
+                minute: minute,
+                message: message,
+                repeat: repeat,
+                days: days,
+                enabled: true
+            };
+            
+            activeAlarms.push(alarm);
+            updateAlarmsDisplay();
+            
+            if (!alarmCheckInterval) {
+                alarmCheckInterval = setInterval(checkAlarms, 1000);
+            }
+            
+            return alarmId;
+        }
+
+        function checkAlarms() {
+            const now = new Date();
+            const currentHour = now.getHours();
+            const currentMinute = now.getMinutes();
+            const currentSecond = now.getSeconds();
+            const currentDay = now.getDay();
+            
+            activeAlarms.forEach(alarm => {
+                if (!alarm.enabled) return;
+                
+                if (alarm.hour === currentHour && alarm.minute === currentMinute && currentSecond === 0) {
+                    if (alarm.repeat && alarm.days.length > 0) {
+                        if (alarm.days.includes(currentDay)) {
+                            alarmAlert(alarm.message);
+                        }
+                    } else if (!alarm.repeat) {
+                        alarmAlert(alarm.message);
+                        removeAlarm(alarm.id);
+                    } else {
                         alarmAlert(alarm.message);
                     }
-                } else if (!alarm.repeat) {
-                    alarmAlert(alarm.message);
-                    removeAlarm(alarm.id);
-                } else {
-                    alarmAlert(alarm.message);
                 }
+            });
+        }
+
+        function alarmAlert(message) {
+            speak(`Alarm! ${message}`);
+            
+            const alertDiv = document.createElement('div');
+            alertDiv.id = 'currentAlert';
+            alertDiv.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: rgba(255, 200, 0, 0.95);
+                color: #0a1f0f;
+                padding: 30px;
+                border-radius: 15px;
+                font-size: 24px;
+                font-weight: bold;
+                z-index: 10000;
+                box-shadow: 0 0 50px rgba(255, 200, 0, 0.8);
+                animation: pulse 1s infinite;
+                text-align: center;
+            `;
+            alertDiv.innerHTML = `
+                ⏰ ${message}
+                <button class="stop-alert-btn" onclick="dismissAlert()">STOP</button>
+            `;
+            document.body.appendChild(alertDiv);
+        }
+
+        function removeAlarm(alarmId) {
+            activeAlarms = activeAlarms.filter(a => a.id !== alarmId);
+            updateAlarmsDisplay();
+            
+            if (activeAlarms.length === 0 && alarmCheckInterval) {
+                clearInterval(alarmCheckInterval);
+                alarmCheckInterval = null;
+            }
+        }
+
+        function cancelAlarm(alarmId) {
+            removeAlarm(alarmId);
+            speak("Alarm cancelled");
+        }
+
+        function dismissAlert() {
+            const alertDiv = document.getElementById('currentAlert');
+            if (alertDiv) {
+                alertDiv.remove();
+            }
+            speechSynthesis.cancel();
+        }
+
+        micButton.addEventListener('click', () => {
+            if (isListening) {
+                recognition.stop();
+            } else {
+                recognition.start();
             }
         });
-    }
-
-    function alarmAlert(message) {
-        speak(`Alarm! ${message}`);
-        
-        const alertDiv = document.createElement('div');
-        alertDiv.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(255, 200, 0, 0.95);
-            color: #0a1f0f;
-            padding: 30px;
-            border-radius: 15px;
-            font-size: 24px;
-            font-weight: bold;
-            z-index: 10000;
-            box-shadow: 0 0 50px rgba(255, 200, 0, 0.8);
-            animation: pulse 1s infinite;
-        `;
-        alertDiv.textContent = `⏰ ${message}`;
-        document.body.appendChild(alertDiv);
-        
-        setTimeout(() => {
-            alertDiv.remove();
-        }, 5000);
-    }
-
-    function removeAlarm(alarmId) {
-        activeAlarms = activeAlarms.filter(a => a.id !== alarmId);
-        
-        if (activeAlarms.length === 0 && alarmCheckInterval) {
-            clearInterval(alarmCheckInterval);
-            alarmCheckInterval = null;
-        }
-    }
-// ============ SPEECH RECOGNITION EVENTS ============
-    micButton.addEventListener('click', () => {
-        if (isListening) {
-            recognition.stop();
-        } else {
-            recognition.start();
-        }
-    });
 
         recognition.onstart = () => {
             isListening = true;
@@ -483,7 +637,6 @@
             const className = speaker === 'You' ? 'user-text' : 'assistant-text';
             p.innerHTML = `<span class="${className}">${speaker}:</span> ${text}`;
             
-            // Remove placeholder text
             if (transcript.children.length === 1 && transcript.children[0].style.textAlign === 'center') {
                 transcript.innerHTML = '';
             }
@@ -513,121 +666,132 @@
         function processCommand(command) {
             const cmd = command.toLowerCase();
             
-            // TIMER COMMANDS
-        if (cmd.includes('timer') || cmd.includes('set a timer')) {
-            let seconds = 0;
-            let message = "Timer";
-            
-            const minuteMatch = cmd.match(/(\d+)\s*minute/i);
-            if (minuteMatch) {
-                seconds += parseInt(minuteMatch[1]) * 60;
-                message = `${minuteMatch[1]} minute timer`;
-            }
-            
-            const secondMatch = cmd.match(/(\d+)\s*second/i);
-            if (secondMatch) {
-                seconds += parseInt(secondMatch[1]);
-                if (!minuteMatch) {
-                    message = `${secondMatch[1]} second timer`;
-                }
-            }
-            
-            const hourMatch = cmd.match(/(\d+)\s*hour/i);
-            if (hourMatch) {
-                seconds += parseInt(hourMatch[1]) * 3600;
-                message = `${hourMatch[1]} hour timer`;
-            }
-            
-            if (seconds > 0) {
-                startTimer(seconds, message);
-                speak(`Timer set for ${message}`);
-            } else {
-                speak("Please specify the timer duration. For example, say set timer for 5 minutes");
-            }
-            return;
-        }
-
-        // ALARM COMMANDS
-        if (cmd.includes('alarm') || cmd.includes('wake me')) {
-            let hour = 0;
-            let minute = 0;
-            let isPM = false;
-            
-            if (cmd.includes('pm') || cmd.includes('p.m')) {
-                isPM = true;
-            }
-            
-            const timeMatch = cmd.match(/(\d+)[\s:]?(\d{2})?/);
-            if (timeMatch) {
-                hour = parseInt(timeMatch[1]);
-                minute = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
+            if (cmd.includes('timer') || cmd.includes('set a timer')) {
+                let seconds = 0;
+                let message = "Timer";
                 
-                if (isPM && hour !== 12) {
-                    hour += 12;
-                } else if (!isPM && hour === 12) {
-                    hour = 0;
+                const minuteMatch = cmd.match(/(\d+)\s*minute/i);
+                if (minuteMatch) {
+                    seconds += parseInt(minuteMatch[1]) * 60;
+                    message = `${minuteMatch[1]} minute timer`;
                 }
                 
-                if (hour >= 0 && hour < 24 && minute >= 0 && minute < 60) {
-                    const timeString = `${hour % 12 || 12}:${minute.toString().padStart(2, '0')} ${hour >= 12 ? 'PM' : 'AM'}`;
-                    setAlarm(hour, minute, `Alarm at ${timeString}`);
-                    speak(`Alarm set for ${timeString}`);
+                const secondMatch = cmd.match(/(\d+)\s*second/i);
+                if (secondMatch) {
+                    seconds += parseInt(secondMatch[1]);
+                    if (!minuteMatch) {
+                        message = `${secondMatch[1]} second timer`;
+                    }
+                }
+                
+                const hourMatch = cmd.match(/(\d+)\s*hour/i);
+                if (hourMatch) {
+                    seconds += parseInt(hourMatch[1]) * 3600;
+                    message = `${hourMatch[1]} hour timer`;
+                }
+                
+                if (seconds > 0) {
+                    startTimer(seconds, message);
+                    speak(`Timer set for ${message}`);
                 } else {
-                    speak("Invalid time. Please try again.");
+                    speak("Please Freshmeat specify the timer duration. For example, say set timer for 5 minutes");
                 }
-            } else {
-                speak("Please specify the alarm time. For example, say set alarm for 7 AM");
+                return;
             }
-            return;
-        }
 
-        // SHOW ALARMS/TIMERS
-        if (cmd.includes('show alarm') || cmd.includes('list alarm')) {
-            if (activeAlarms.length === 0) {
-                speak("You have no active alarms");
-            } else {
-                const alarmList = activeAlarms.map(a => {
-                    const timeString = `${a.hour % 12 || 12}:${a.minute.toString().padStart(2, '0')} ${a.hour >= 12 ? 'PM' : 'AM'}`;
-                    return timeString;
-                }).join(', ');
-                speak(`You have ${activeAlarms.length} alarm${activeAlarms.length > 1 ? 's' : ''} set: ${alarmList}`);
+            if (cmd.includes('alarm') || cmd.includes('wake me')) {
+                let hour = 0;
+                let minute = 0;
+                let isPM = false;
+                
+                if (cmd.includes('pm') || cmd.includes('p.m')) {
+                    isPM = true;
+                }
+                
+                const timeMatch = cmd.match(/(\d+)[\s:]?(\d{2})?/);
+                if (timeMatch) {
+                    hour = parseInt(timeMatch[1]);
+                    minute = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
+                    
+                    if (isPM && hour !== 12) {
+                        hour += 12;
+                    } else if (!isPM && hour === 12) {
+                        hour = 0;
+                    }
+                    
+                    if (hour >= 0 && hour < 24 && minute >= 0 && minute < 60) {
+                        const timeString = `${hour % 12 || 12}:${minute.toString().padStart(2, '0')} ${hour >= 12 ? 'PM' : 'AM'}`;
+                        setAlarm(hour, minute, `Alarm at ${timeString}`);
+                        speak(`Freshmeat your alarm set for ${timeString}`);
+                    } else {
+                        speak("Invalid time. Please try again.");
+                    }
+                } else {
+                    speak("Please Freshmeat specify the alarm time. For example, say set alarm for 7 AM");
+                }
+                return;
             }
-            return;
-        }
 
-        if (cmd.includes('show timer') || cmd.includes('list timer')) {
-            if (activeTimers.length === 0) {
-                speak("You have no active timers");
-            } else {
-                speak(`You have ${activeTimers.length} active timer${activeTimers.length > 1 ? 's' : ''}`);
+            if (cmd.includes('show alarm') || cmd.includes('list alarm')) {
+                if (activeAlarms.length === 0) {
+                    speak("You have no active alarms");
+                } else {
+                    const alarmList = activeAlarms.map(a => {
+                        const timeString = `${a.hour % 12 || 12}:${a.minute.toString().padStart(2, '0')} ${a.hour >= 12 ? 'PM' : 'AM'}`;
+                        return timeString;
+                    }).join(', ');
+                    speak(`You have ${activeAlarms.length} alarm${activeAlarms.length > 1 ? 's' : ''} set: ${alarmList}`);
+                }
+                return;
             }
-            return;
-        }
 
-        // CANCEL ALARMS/TIMERS
-        if (cmd.includes('cancel alarm') || cmd.includes('delete alarm') || cmd.includes('remove alarm')) {
-            activeAlarms = [];
-            if (alarmCheckInterval) {
-                clearInterval(alarmCheckInterval);
-                alarmCheckInterval = null;
+            if (cmd.includes('show timer') || cmd.includes('list timer')) {
+                if (activeTimers.length === 0) {
+                    speak("You have no active timers");
+                } else {
+                    speak(`You have ${activeTimers.length} active timer${activeTimers.length > 1 ? 's' : ''}`);
+                }
+                return;
             }
-            speak("All alarms have been cancelled");
-            return;
-        }
 
-        if (cmd.includes('cancel timer') || cmd.includes('stop timer')) {
-            activeTimers = [];
-            speak("All timers have been cancelled");
-            return;
-        }
+            if (cmd.includes('cancel') && (cmd.includes('alarm') || cmd.includes('all alarm'))) {
+                if (activeAlarms.length === 0) {
+                    speak("No alarms to cancel");
+                } else {
+                    activeAlarms = [];
+                    if (alarmCheckInterval) {
+                        clearInterval(alarmCheckInterval);
+                        alarmCheckInterval = null;
+                    }
+                    updateAlarmsDisplay();
+                    speak("All Freshmeat alarms have been cancelled");
+                }
+                return;
+            }
 
-            // Stop command
+            if (cmd.includes('cancel') && (cmd.includes('timer') || cmd.includes('all timer'))) {
+                if (activeTimers.length === 0) {
+                    speak("No timers to cancel");
+                } else {
+                    activeTimers.forEach(timer => {
+                        if (timer.timeout) clearTimeout(timer.timeout);
+                    });
+                    activeTimers = [];
+                    if (timerUpdateInterval) {
+                        clearInterval(timerUpdateInterval);
+                        timerUpdateInterval = null;
+                    }
+                    updateTimersDisplay();
+                    speak("All timers have been cancelled");
+                }
+                return;
+            }
+
             if (cmd.includes('stop') || cmd.includes('exit') || cmd.includes('quit') || cmd.includes('bye')) {
                 speak('Goodbye Freshmeat! Have a great day!');
                 return;
             }
 
-            // Time
             if (cmd.includes('time')) {
                 const now = new Date();
                 const timeString = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
@@ -635,7 +799,6 @@
                 return;
             }
 
-            // Date
             if (cmd.includes('date') || cmd.includes('today')) {
                 const now = new Date();
                 const dateString = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -643,7 +806,6 @@
                 return;
             }
 
-            // Calculator
             if (cmd.match(/\d+/) && (cmd.includes('+') || cmd.includes('-') || cmd.includes('*') || cmd.includes('/') || 
                 cmd.includes('x') || cmd.includes('plus') || cmd.includes('minus') || cmd.includes('times') || 
                 cmd.includes('multiply') || cmd.includes('divide') || cmd.includes('calculate') || cmd.includes('compute'))) {
@@ -666,7 +828,6 @@
                 return;
             }
 
-            // Jokes
             if (cmd.includes('joke') || cmd.includes('funny')) {
                 const jokes = [
                     "Why do programmers prefer dark mode? Because light attracts bugs!",
@@ -683,13 +844,6 @@
                 return;
             }
 
-            // Wikipedia
-            if (cmd.includes('wikipedia') || cmd.includes('search for') || cmd.includes('who is') || cmd.includes('what is')) {
-                speak("Freshmeat! I can search Wikipedia, but this feature requires an internet API. For now, try asking me about time, calculations, or jokes!");
-                return;
-            }
-
-            // Open websites
             if (cmd.includes('open')) {
                 const websites = {
                     'youtube': 'https://www.youtube.com',
@@ -698,7 +852,7 @@
                     'instagram': 'https://www.instagram.com',
                     'twitter': 'https://www.twitter.com',
                     'gmail': 'https://mail.google.com',
-                    'messager': 'https://messager.com'
+                    'messenger': 'https://messenger.com'
                 };
 
                 for (const [site, url] of Object.entries(websites)) {
@@ -712,13 +866,15 @@
                 return;
             }
 
-            // Default
             speak(`You said: ${command}`);
         }
 
         function clearTranscript() {
             transcript.innerHTML = '<p style="text-align: center; color: #88ffbb;">Your conversation will appear here...</p>';
         }
+
+        updateTimersDisplay();
+        updateAlarmsDisplay();
     </script>
 </body>
 </html>
