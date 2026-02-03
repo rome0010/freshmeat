@@ -275,6 +275,7 @@
             <h3>What I Can Do:</h3>
             <ul>
                 <li>Tell time and date</li>
+                <li>Set timer and alarm</li>
                 <li>Calculator (e.g., "25 + 75")</li>
                 <li>Tell jokes</li>
                 <li>Search Wikipedia</li>
@@ -301,14 +302,154 @@
         const status = document.getElementById('status');
         const transcript = document.getElementById('transcript');
         let isListening = false;
+        
+        // ============ ALARM AND TIMER VARIABLES ============
+    let activeAlarms = [];
+    let activeTimers = [];
+    let alarmCheckInterval = null;
 
-        micButton.addEventListener('click', () => {
-            if (isListening) {
-                recognition.stop();
-            } else {
-                recognition.start();
+// ============ ALARM AND TIMER FUNCTIONS ============
+    function startTimer(seconds, message = "Timer finished") {
+        const timerId = Date.now();
+        const endTime = Date.now() + (seconds * 1000);
+        
+        const timer = {
+            id: timerId,
+            endTime: endTime,
+            message: message,
+            seconds: seconds
+        };
+        
+        activeTimers.push(timer);
+        
+        setTimeout(() => {
+            timerAlert(message);
+            removeTimer(timerId);
+        }, seconds * 1000);
+        
+        return timerId;
+    }
+    function timerAlert(message) {
+        speak(`Timer alert! ${message}`);
+        
+        const alertDiv = document.createElement('div');
+        alertDiv.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 0, 85, 0.95);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            font-size: 24px;
+            font-weight: bold;
+            z-index: 10000;
+            box-shadow: 0 0 50px rgba(255, 0, 85, 0.8);
+            animation: pulse 1s infinite;
+        `;
+        alertDiv.textContent = `⏰ ${message}`;
+        document.body.appendChild(alertDiv);
+        
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
+
+    function removeTimer(timerId) {
+        activeTimers = activeTimers.filter(t => t.id !== timerId);
+    }
+
+    function setAlarm(hour, minute, message = "Alarm", repeat = false, days = []) {
+        const alarmId = Date.now();
+        
+        const alarm = {
+            id: alarmId,
+            hour: hour,
+            minute: minute,
+            message: message,
+            repeat: repeat,
+            days: days,
+            enabled: true
+        };
+        
+        activeAlarms.push(alarm);
+        
+        if (!alarmCheckInterval) {
+            alarmCheckInterval = setInterval(checkAlarms, 1000);
+        }
+        
+        return alarmId;
+    }
+
+    function checkAlarms() {
+        const now = new Date();
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+        const currentSecond = now.getSeconds();
+        const currentDay = now.getDay();
+        
+        activeAlarms.forEach(alarm => {
+            if (!alarm.enabled) return;
+            
+            if (alarm.hour === currentHour && alarm.minute === currentMinute && currentSecond === 0) {
+                if (alarm.repeat && alarm.days.length > 0) {
+                    if (alarm.days.includes(currentDay)) {
+                        alarmAlert(alarm.message);
+                    }
+                } else if (!alarm.repeat) {
+                    alarmAlert(alarm.message);
+                    removeAlarm(alarm.id);
+                } else {
+                    alarmAlert(alarm.message);
+                }
             }
         });
+    }
+
+    function alarmAlert(message) {
+        speak(`Alarm! ${message}`);
+        
+        const alertDiv = document.createElement('div');
+        alertDiv.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 200, 0, 0.95);
+            color: #0a1f0f;
+            padding: 30px;
+            border-radius: 15px;
+            font-size: 24px;
+            font-weight: bold;
+            z-index: 10000;
+            box-shadow: 0 0 50px rgba(255, 200, 0, 0.8);
+            animation: pulse 1s infinite;
+        `;
+        alertDiv.textContent = `⏰ ${message}`;
+        document.body.appendChild(alertDiv);
+        
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
+
+    function removeAlarm(alarmId) {
+        activeAlarms = activeAlarms.filter(a => a.id !== alarmId);
+        
+        if (activeAlarms.length === 0 && alarmCheckInterval) {
+            clearInterval(alarmCheckInterval);
+            alarmCheckInterval = null;
+        }
+    }
+// ============ SPEECH RECOGNITION EVENTS ============
+    micButton.addEventListener('click', () => {
+        if (isListening) {
+            recognition.stop();
+        } else {
+            recognition.start();
+        }
+    });
 
         recognition.onstart = () => {
             isListening = true;
@@ -371,6 +512,114 @@
 
         function processCommand(command) {
             const cmd = command.toLowerCase();
+            
+            // TIMER COMMANDS
+        if (cmd.includes('timer') || cmd.includes('set a timer')) {
+            let seconds = 0;
+            let message = "Timer";
+            
+            const minuteMatch = cmd.match(/(\d+)\s*minute/i);
+            if (minuteMatch) {
+                seconds += parseInt(minuteMatch[1]) * 60;
+                message = `${minuteMatch[1]} minute timer`;
+            }
+            
+            const secondMatch = cmd.match(/(\d+)\s*second/i);
+            if (secondMatch) {
+                seconds += parseInt(secondMatch[1]);
+                if (!minuteMatch) {
+                    message = `${secondMatch[1]} second timer`;
+                }
+            }
+            
+            const hourMatch = cmd.match(/(\d+)\s*hour/i);
+            if (hourMatch) {
+                seconds += parseInt(hourMatch[1]) * 3600;
+                message = `${hourMatch[1]} hour timer`;
+            }
+            
+            if (seconds > 0) {
+                startTimer(seconds, message);
+                speak(`Timer set for ${message}`);
+            } else {
+                speak("Please specify the timer duration. For example, say set timer for 5 minutes");
+            }
+            return;
+        }
+
+        // ALARM COMMANDS
+        if (cmd.includes('alarm') || cmd.includes('wake me')) {
+            let hour = 0;
+            let minute = 0;
+            let isPM = false;
+            
+            if (cmd.includes('pm') || cmd.includes('p.m')) {
+                isPM = true;
+            }
+            
+            const timeMatch = cmd.match(/(\d+)[\s:]?(\d{2})?/);
+            if (timeMatch) {
+                hour = parseInt(timeMatch[1]);
+                minute = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
+                
+                if (isPM && hour !== 12) {
+                    hour += 12;
+                } else if (!isPM && hour === 12) {
+                    hour = 0;
+                }
+                
+                if (hour >= 0 && hour < 24 && minute >= 0 && minute < 60) {
+                    const timeString = `${hour % 12 || 12}:${minute.toString().padStart(2, '0')} ${hour >= 12 ? 'PM' : 'AM'}`;
+                    setAlarm(hour, minute, `Alarm at ${timeString}`);
+                    speak(`Alarm set for ${timeString}`);
+                } else {
+                    speak("Invalid time. Please try again.");
+                }
+            } else {
+                speak("Please specify the alarm time. For example, say set alarm for 7 AM");
+            }
+            return;
+        }
+
+        // SHOW ALARMS/TIMERS
+        if (cmd.includes('show alarm') || cmd.includes('list alarm')) {
+            if (activeAlarms.length === 0) {
+                speak("You have no active alarms");
+            } else {
+                const alarmList = activeAlarms.map(a => {
+                    const timeString = `${a.hour % 12 || 12}:${a.minute.toString().padStart(2, '0')} ${a.hour >= 12 ? 'PM' : 'AM'}`;
+                    return timeString;
+                }).join(', ');
+                speak(`You have ${activeAlarms.length} alarm${activeAlarms.length > 1 ? 's' : ''} set: ${alarmList}`);
+            }
+            return;
+        }
+
+        if (cmd.includes('show timer') || cmd.includes('list timer')) {
+            if (activeTimers.length === 0) {
+                speak("You have no active timers");
+            } else {
+                speak(`You have ${activeTimers.length} active timer${activeTimers.length > 1 ? 's' : ''}`);
+            }
+            return;
+        }
+
+        // CANCEL ALARMS/TIMERS
+        if (cmd.includes('cancel alarm') || cmd.includes('delete alarm') || cmd.includes('remove alarm')) {
+            activeAlarms = [];
+            if (alarmCheckInterval) {
+                clearInterval(alarmCheckInterval);
+                alarmCheckInterval = null;
+            }
+            speak("All alarms have been cancelled");
+            return;
+        }
+
+        if (cmd.includes('cancel timer') || cmd.includes('stop timer')) {
+            activeTimers = [];
+            speak("All timers have been cancelled");
+            return;
+        }
 
             // Stop command
             if (cmd.includes('stop') || cmd.includes('exit') || cmd.includes('quit') || cmd.includes('bye')) {
@@ -436,7 +685,7 @@
 
             // Wikipedia
             if (cmd.includes('wikipedia') || cmd.includes('search for') || cmd.includes('who is') || cmd.includes('what is')) {
-                speak("I can search Wikipedia, but this feature requires an internet API. For now, try asking me about time, calculations, or jokes!");
+                speak("Freshmeat! I can search Wikipedia, but this feature requires an internet API. For now, try asking me about time, calculations, or jokes!");
                 return;
             }
 
@@ -448,7 +697,8 @@
                     'facebook': 'https://www.facebook.com',
                     'instagram': 'https://www.instagram.com',
                     'twitter': 'https://www.twitter.com',
-                    'gmail': 'https://mail.google.com'
+                    'gmail': 'https://mail.google.com',
+                    'messager': 'https://messager.com'
                 };
 
                 for (const [site, url] of Object.entries(websites)) {
@@ -458,7 +708,7 @@
                         return;
                     }
                 }
-                speak("Sorry, I don't know how to open that website.");
+                speak("Sorry Freshmeat, I don't know how to open that website.");
                 return;
             }
 
