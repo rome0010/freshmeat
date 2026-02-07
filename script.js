@@ -170,29 +170,17 @@ let wakeWordEnabled = true;
             playAlarmSound();
             vibrateDevice();
             
-            const alertDiv = document.createElement('div');
-            alertDiv.id = 'currentAlert';
-            alertDiv.style.cssText = `
-                position: fixed;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                background: rgba(255, 0, 85, 0.95);
-                color: white;
-                padding: 30px;
-                border-radius: 15px;
-                font-size: 24px;
-                font-weight: bold;
-                z-index: 10000;
-                box-shadow: 0 0 50px rgba(255, 0, 85, 0.8);
-                animation: pulse 1s infinite;
-                text-align: center;
-            `;
-            alertDiv.innerHTML = `
-                ⏰ ${message}
-                <button class="stop-alert-btn" onclick="dismissAlert()">STOP</button>
-            `;
-            document.body.appendChild(alertDiv);
+            // Transform mic button into STOP button
+            micButton.classList.add('alarm-active');
+            micButton.textContent = '⏰';
+            micButton.style.animation = 'pulse 1s infinite';
+            status.textContent = `⏰ ${message} - TAP TO STOP`;
+            status.style.color = '#ff0055';
+            status.style.fontSize = '18px';
+            status.style.fontWeight = 'bold';
+            
+            // Store that we're in alarm mode
+            micButton.dataset.alarmMode = 'timer';
         }
 
         function removeTimer(timerId) {
@@ -263,29 +251,17 @@ let wakeWordEnabled = true;
             playAlarmSound();
             vibrateDevice();
             
-            const alertDiv = document.createElement('div');
-            alertDiv.id = 'currentAlert';
-            alertDiv.style.cssText = `
-                position: fixed;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                background: rgba(255, 0, 85, 0.95);
-                color: white;
-                padding: 30px;
-                border-radius: 15px;
-                font-size: 24px;
-                font-weight: bold;
-                z-index: 10000;
-                box-shadow: 0 0 50px rgba(255, 0, 85, 0.8);
-                animation: pulse 1s infinite;
-                text-align: center;
-            `;
-            alertDiv.innerHTML = `
-                ⏰ ${message}
-                <button class="stop-alert-btn" onclick="dismissAlert()">STOP</button>
-            `;
-            document.body.appendChild(alertDiv);
+            // Transform mic button into STOP button
+            micButton.classList.add('alarm-active');
+            micButton.textContent = '⏰';
+            micButton.style.animation = 'pulse 1s infinite';
+            status.textContent = `⏰ ${message} - TAP TO STOP`;
+            status.style.color = '#ff0055';
+            status.style.fontSize = '18px';
+            status.style.fontWeight = 'bold';
+            
+            // Store that we're in alarm mode
+            micButton.dataset.alarmMode = 'alarm';
         }
 
         function removeAlarm(alarmId) {
@@ -304,13 +280,39 @@ let wakeWordEnabled = true;
         }
 
         function dismissAlert() {
+            // Remove the alert popup (if any old code created it)
             const alertDiv = document.getElementById('currentAlert');
             if (alertDiv) {
                 alertDiv.remove();
             }
+            
+            // Stop the alarm sound (oscillator)
             if (alarmAudio) {
-                alarmAudio.stop();
+                try {
+                    alarmAudio.stop();
+                } catch (e) {
+                    // Already stopped or not started
+                }
+                alarmAudio = null;
             }
+            
+            // Stop all speech synthesis
+            window.speechSynthesis.cancel();
+            
+            // Stop vibration
+            if ('vibrate' in navigator) {
+                navigator.vibrate(0); // Stop vibration
+            }
+            
+            // Restore mic button to normal state
+            micButton.classList.remove('alarm-active');
+            micButton.textContent = '🎤';
+            micButton.style.animation = '';
+            status.textContent = 'Ready to listen...';
+            status.style.color = '#88ffbb';
+            status.style.fontSize = '';
+            status.style.fontWeight = '';
+            delete micButton.dataset.alarmMode;
         }
 
         // ===== SPEECH RECOGNITION HANDLERS =====
@@ -356,6 +358,13 @@ let wakeWordEnabled = true;
 
         // ===== MICROPHONE BUTTON =====
         micButton.addEventListener('click', () => {
+            // Check if we're in alarm mode
+            if (micButton.dataset.alarmMode) {
+                dismissAlert();
+                return;
+            }
+            
+            // Normal mic behavior
             if (isListening) {
                 recognition.stop();
             } else {
