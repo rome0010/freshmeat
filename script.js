@@ -519,4 +519,161 @@ let wakeWordEnabled = true;
 
             if (cmd.includes('show alarm') || cmd.includes('list alarm')) {
                 if (activeAlarms.length === 0) {
-            
+                    speak("You have no active alarms");
+                    addResponse("You have no active alarms");
+                } else {
+                    const alarmList = activeAlarms.map(a => {
+                        const timeString = `${a.hour % 12 || 12}:${a.minute.toString().padStart(2, '0')} ${a.hour >= 12 ? 'PM' : 'AM'}`;
+                        return timeString;
+                    }).join(', ');
+                    speak(`You have ${activeAlarms.length} alarm${activeAlarms.length > 1 ? 's' : ''} set: ${alarmList}`);
+                    addResponse(`You have ${activeAlarms.length} alarm${activeAlarms.length > 1 ? 's' : ''} set: ${alarmList}`);
+                }
+                return;
+            }
+
+            if (cmd.includes('show timer') || cmd.includes('list timer')) {
+                if (activeTimers.length === 0) {
+                    speak("You have no active timers");
+                    addResponse("You have no active timers");
+                } else {
+                    speak(`You have ${activeTimers.length} active timer${activeTimers.length > 1 ? 's' : ''}`);
+                    addResponse(`You have ${activeTimers.length} active timer${activeTimers.length > 1 ? 's' : ''}`);
+                }
+                return;
+            }
+
+            if (cmd.includes('cancel') && (cmd.includes('alarm') || cmd.includes('all alarm'))) {
+                if (activeAlarms.length === 0) {
+                    speak("No alarms to cancel");
+                    addResponse("No alarms to cancel");
+                } else {
+                    activeAlarms = [];
+                    if (alarmCheckInterval) {
+                        clearInterval(alarmCheckInterval);
+                        alarmCheckInterval = null;
+                    }
+                    updateAlarmsDisplay();
+                    speak("All alarms have been cancelled");
+                    addResponse("All alarms have been cancelled");
+                }
+                return;
+            }
+
+            if (cmd.includes('cancel') && (cmd.includes('timer') || cmd.includes('all timer'))) {
+                if (activeTimers.length === 0) {
+                    speak("No timers to cancel");
+                    addResponse("No timers to cancel");
+                } else {
+                    activeTimers.forEach(timer => {
+                        if (timer.timeout) clearTimeout(timer.timeout);
+                    });
+                    activeTimers = [];
+                    if (timerUpdateInterval) {
+                        clearInterval(timerUpdateInterval);
+                        timerUpdateInterval = null;
+                    }
+                    updateTimersDisplay();
+                    speak("All timers have been cancelled");
+                    addResponse("All timers have been cancelled");
+                }
+                return;
+            }
+
+            if (cmd.includes('stop') || cmd.includes('exit') || cmd.includes('quit') || cmd.includes('bye')) {
+                speak('Goodbye! Have a great day!');
+                addResponse('Goodbye! Have a great day!');
+                return;
+            }
+
+            if (cmd.includes('time')) {
+                const now = new Date();
+                const timeString = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                speak(`The current time is ${timeString}`);
+                addResponse(`The current time is ${timeString}`);
+                return;
+            }
+
+            if (cmd.includes('date') || cmd.includes('today')) {
+                const now = new Date();
+                const dateString = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+                speak(`Today's date is ${dateString}`);
+                addResponse(`Today's date is ${dateString}`);
+                return;
+            }
+
+            if (cmd.match(/\d+/) && (cmd.includes('+') || cmd.includes('-') || cmd.includes('*') || cmd.includes('/') || 
+                cmd.includes('x') || cmd.includes('plus') || cmd.includes('minus') || cmd.includes('times') || 
+                cmd.includes('multiply') || cmd.includes('divide') || cmd.includes('calculate') || cmd.includes('compute'))) {
+                
+                try {
+                    let expression = cmd;
+                    expression = expression.replace(/what is|calculate|compute|can you|please|equals?/gi, '');
+                    expression = expression.replace(/plus|add/gi, '+');
+                    expression = expression.replace(/minus|subtract/gi, '-');
+                    expression = expression.replace(/times|multiply|multiplied by/gi, '*');
+                    expression = expression.replace(/divided by|divide|over/gi, '/');
+                    expression = expression.replace(/\s+x\s+/gi, '*');
+                    expression = expression.trim();
+                    
+                    const result = eval(expression);
+                    speak(`The answer is ${result}`);
+                    addResponse(`The answer is ${result}`);
+                } catch (e) {
+                    speak("Sorry, I couldn't calculate that.");
+                    addResponse("Sorry, I couldn't calculate that.");
+                }
+                return;
+            }
+
+            if (cmd.includes('joke') || cmd.includes('funny')) {
+                const jokes = [
+                    "Why do programmers prefer dark mode? Because light attracts bugs!",
+                    "Why did the developer go broke? Because he used up all his cache!",
+                    "What do you call a programmer from Finland? Nerdic!",
+                    "Why do Java developers wear glasses? Because they don't C sharp!",
+                    "How many programmers does it take to change a light bulb? None, that's a hardware problem!",
+                    "Why did the computer show up at work late? It had a hard drive!",
+                    "What's a computer's favorite snack? Microchips!",
+                    "Why was the JavaScript developer sad? Because he didn't Node how to Express himself!"
+                ];
+                const randomJoke = jokes[Math.floor(Math.random() * jokes.length)];
+                speak(randomJoke);
+                addResponse(randomJoke);
+                return;
+            }
+
+            if (cmd.includes('open')) {
+                const websites = {
+                    'youtube': 'https://www.youtube.com',
+                    'google': 'https://www.google.com',
+                    'facebook': 'https://www.facebook.com',
+                    'instagram': 'https://www.instagram.com',
+                    'twitter': 'https://www.twitter.com',
+                    'gmail': 'https://mail.google.com',
+                    'messenger': 'https://messenger.com'
+                };
+
+                for (const [site, url] of Object.entries(websites)) {
+                    if (cmd.includes(site)) {
+                        speak(`Opening ${site}`);
+                        addResponse(`Opening ${site}`);
+                        window.open(url, '_blank');
+                        return;
+                    }
+                }
+                speak("Sorry, I don't know how to open that website.");
+                addResponse("Sorry, I don't know how to open that website.");
+                return;
+            }
+
+            speak(`You said: ${command}`);
+            addResponse(`You said: ${command}`);
+        }
+
+        function clearTranscript() {
+            transcript.innerHTML = '<p style="text-align: center; color: #88ffbb;">Your conversation will appear here...</p>';
+        }
+
+        updateTimersDisplay();
+        updateAlarmsDisplay();
