@@ -312,25 +312,25 @@ let wakeWordEnabled = true;
         });
 
         recognition.onstart = () => {
-            isListening = true;
-            micButton.classList.add('listening');
-            status.classList.add('listening');
-            status.textContent = '🎤 Listening... Speak now!';
-        };
+    isListening = true;
+    micButton.classList.add('listening');
+    status.classList.add('listening');
+    status.textContent = '🎧 Say "Hey Pudie"...';
+};
 
         recognition.onend = () => {
-            isListening = false;
-            micButton.classList.remove('listening');
-            status.classList.remove('listening', 'speaking');
-            status.textContent = 'Ready to listen...';
-        };
+    isListening = false;
+    micButton.classList.remove('listening');
+    status.classList.remove('listening', 'speaking');
+    status.textContent = 'Ready to listen...';
+};
 
         recognition.onerror = (event) => {
-            console.error('Speech recognition error:', event.error);
-            status.textContent = 'Error: ' + event.error;
-            isListening = false;
-            micButton.classList.remove('listening');
-        };
+    console.error('Speech recognition error:', event.error);
+    status.textContent = 'Error: ' + event.error;
+    isListening = false;
+    micButton.classList.remove('listening');
+};
 
         recognition.onresult = (event) => {
     let command = event.results[0][0].transcript.toLowerCase();
