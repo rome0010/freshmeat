@@ -28,6 +28,35 @@ let wakeWordEnabled = true;
         let timerUpdateInterval = null;
         let alarmAudio = null;
 
+        // ===== TEXT-TO-SPEECH FUNCTION =====
+        function speak(text) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+            utterance.lang = 'en-US';
+            
+            // Get available voices and select a good one
+            const voices = window.speechSynthesis.getVoices();
+            const preferredVoice = voices.find(voice => 
+                voice.name.includes('Female') || 
+                voice.name.includes('Samantha') ||
+                voice.name.includes('Google')
+            );
+            if (preferredVoice) {
+                utterance.voice = preferredVoice;
+            }
+            
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // Load voices when they're ready
+        if (window.speechSynthesis.onvoiceschanged !== undefined) {
+            window.speechSynthesis.onvoiceschanged = () => {
+                window.speechSynthesis.getVoices();
+            };
+        }
+
         // Vibration function
         function vibrateDevice() {
             if ('vibrate' in navigator) {
@@ -194,8 +223,7 @@ let wakeWordEnabled = true;
                 minute: minute,
                 message: message,
                 repeat: repeat,
-                days: days,
-                enabled: true
+                days: days
             };
             
             activeAlarms.push(alarm);
@@ -212,22 +240,19 @@ let wakeWordEnabled = true;
             const now = new Date();
             const currentHour = now.getHours();
             const currentMinute = now.getMinutes();
-            const currentSecond = now.getSeconds();
             const currentDay = now.getDay();
             
             activeAlarms.forEach(alarm => {
-                if (!alarm.enabled) return;
-                
-                if (alarm.hour === currentHour && alarm.minute === currentMinute && currentSecond === 0) {
-                    if (alarm.repeat && alarm.days.length > 0) {
-                        if (alarm.days.includes(currentDay)) {
-                            alarmAlert(alarm.message);
+                if (alarm.hour === currentHour && alarm.minute === currentMinute && !alarm.triggered) {
+                    if (!alarm.repeat || alarm.days.includes(currentDay)) {
+                        alarmAlert(alarm.message);
+                        alarm.triggered = true;
+                        
+                        if (!alarm.repeat) {
+                            setTimeout(() => removeAlarm(alarm.id), 60000);
+                        } else {
+                            setTimeout(() => alarm.triggered = false, 60000);
                         }
-                    } else if (!alarm.repeat) {
-                        alarmAlert(alarm.message);
-                        removeAlarm(alarm.id);
-                    } else {
-                        alarmAlert(alarm.message);
                     }
                 }
             });
@@ -245,14 +270,14 @@ let wakeWordEnabled = true;
                 top: 50%;
                 left: 50%;
                 transform: translate(-50%, -50%);
-                background: rgba(255, 200, 0, 0.95);
-                color: #0a1f0f;
+                background: rgba(255, 0, 85, 0.95);
+                color: white;
                 padding: 30px;
                 border-radius: 15px;
                 font-size: 24px;
                 font-weight: bold;
                 z-index: 10000;
-                box-shadow: 0 0 50px rgba(255, 200, 0, 0.8);
+                box-shadow: 0 0 50px rgba(255, 0, 85, 0.8);
                 animation: pulse 1s infinite;
                 text-align: center;
             `;
@@ -283,131 +308,92 @@ let wakeWordEnabled = true;
             if (alertDiv) {
                 alertDiv.remove();
             }
-            
-            // Stop speech
-            speechSynthesis.cancel();
-            
-            // Stop vibration
-            if ('vibrate' in navigator) {
-                navigator.vibrate(0);
-            }
-            
-            // Stop alarm sound
             if (alarmAudio) {
-                try {
-                    alarmAudio.stop();
-                } catch(e) {
-                    // Already stopped
-                }
-                alarmAudio = null;
+                alarmAudio.stop();
             }
         }
 
+        // ===== SPEECH RECOGNITION HANDLERS =====
+        recognition.onstart = () => {
+            isListening = true;
+            micButton.classList.add('listening');
+            status.textContent = 'Listening...';
+            status.style.color = '#ff0055';
+        };
+
+        recognition.onend = () => {
+            isListening = false;
+            micButton.classList.remove('listening');
+            status.textContent = 'Ready to listen...';
+            status.style.color = '#88ffbb';
+        };
+
+        recognition.onerror = (event) => {
+            console.error('Speech recognition error:', event.error);
+            status.textContent = `Error: ${event.error}`;
+            status.style.color = '#ff0055';
+            isListening = false;
+            micButton.classList.remove('listening');
+        };
+
+        recognition.onresult = (event) => {
+            const speechResult = event.results[0][0].transcript.toLowerCase();
+            console.log('Heard:', speechResult);
+            
+            // Add to transcript
+            const userDiv = document.createElement('div');
+            userDiv.className = 'message user-message';
+            userDiv.innerHTML = `<strong>You:</strong> ${speechResult}`;
+            
+            if (transcript.innerHTML.includes('Your conversation will appear here')) {
+                transcript.innerHTML = '';
+            }
+            transcript.appendChild(userDiv);
+            
+            // Process command
+            processCommand(speechResult);
+        };
+
+        // ===== MICROPHONE BUTTON =====
         micButton.addEventListener('click', () => {
             if (isListening) {
                 recognition.stop();
             } else {
-                recognition.start();
+                try {
+                    recognition.start();
+                } catch (error) {
+                    console.error('Recognition start error:', error);
+                }
             }
         });
 
-        recognition.onstart = () => {
-    isListening = true;
-    micButton.classList.add('listening');
-    status.classList.add('listening');
-    status.textContent = '🎧 Say "Hey Pudie"...';
-};
-
-        recognition.onend = () => {
-    isListening = false;
-    micButton.classList.remove('listening');
-    status.classList.remove('listening', 'speaking');
-    status.textContent = 'Ready to listen...';
-};
-
-        recognition.onerror = (event) => {
-    console.error('Speech recognition error:', event.error);
-    status.textContent = 'Error: ' + event.error;
-    isListening = false;
-    micButton.classList.remove('listening');
-};
-
-        recognition.onresult = (event) => {
-    let command = event.results[0][0].transcript.toLowerCase();
-
-    // 🔒 Wake word check
-    if (wakeWordEnabled) {
-        if (!command.includes(WAKE_WORD)) {
-            return; // ignore kapag walang "hey pudie"
-        }
-
-        // tanggalin ang wake word
-        command = command.replace(WAKE_WORD, "").trim();
-
-        // kung "hey pudie" lang
-        if (command.length === 0) {
-            speak("Yes?");
-            return;
-        }
-    }
-
-    addToTranscript('You', command);
-    processCommand(command);
-};
-
-        function addToTranscript(speaker, text) {
-            const p = document.createElement('p');
-            const className = speaker === 'You' ? 'user-text' : 'assistant-text';
-            p.innerHTML = `<span class="${className}">${speaker}:</span> ${text}`;
-            
-            if (transcript.children.length === 1 && transcript.children[0].style.textAlign === 'center') {
-                transcript.innerHTML = '';
-            }
-            
-            transcript.appendChild(p);
+        function addResponse(text) {
+            const responseDiv = document.createElement('div');
+            responseDiv.className = 'message assistant-message';
+            responseDiv.innerHTML = `<strong>Pudie:</strong> ${text}`;
+            transcript.appendChild(responseDiv);
             transcript.scrollTop = transcript.scrollHeight;
-        }
-
-        function speak(text) {
-            status.classList.add('speaking');
-            status.textContent = '🔊 Speaking...';
-            addToTranscript('Pudie', text);
-
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.rate = 0.9;
-            utterance.pitch = 1;
-            utterance.volume = 1;
-
-            utterance.onend = () => {
-                status.classList.remove('speaking');
-                status.textContent = 'Ready to listen...';
-            };
-
-            speechSynthesis.speak(utterance);
         }
 
         function processCommand(command) {
             const cmd = command.toLowerCase();
-            
-            if (cmd.includes('timer') || cmd.includes('set a timer')) {
+
+            if (cmd.includes('timer')) {
                 let seconds = 0;
-                let message = "Timer";
+                let message = "Timer finished";
                 
-                const minuteMatch = cmd.match(/(\d+)\s*minute/i);
+                const minuteMatch = cmd.match(/(\d+)\s*(?:minute|min)/);
+                const secondMatch = cmd.match(/(\d+)\s*(?:second|sec)/);
+                const hourMatch = cmd.match(/(\d+)\s*(?:hour|hr)/);
+                
                 if (minuteMatch) {
                     seconds += parseInt(minuteMatch[1]) * 60;
                     message = `${minuteMatch[1]} minute timer`;
                 }
-                
-                const secondMatch = cmd.match(/(\d+)\s*second/i);
                 if (secondMatch) {
                     seconds += parseInt(secondMatch[1]);
-                    if (!minuteMatch) {
-                        message = `${secondMatch[1]} second timer`;
-                    }
+                    message = `${secondMatch[1]} second timer`;
                 }
-                
-                const hourMatch = cmd.match(/(\d+)\s*hour/i);
                 if (hourMatch) {
                     seconds += parseInt(hourMatch[1]) * 3600;
                     message = `${hourMatch[1]} hour timer`;
@@ -416,8 +402,10 @@ let wakeWordEnabled = true;
                 if (seconds > 0) {
                     startTimer(seconds, message);
                     speak(`Timer set for ${message}`);
+                    addResponse(`Timer set for ${message}`);
                 } else {
-                    speak("Please Freshmeat specify the timer duration. For example, say set timer for 5 minutes");
+                    speak("Please specify the timer duration. For example, say set timer for 5 minutes");
+                    addResponse("Please specify the timer duration. For example, say set timer for 5 minutes");
                 }
                 return;
             }
@@ -445,12 +433,15 @@ let wakeWordEnabled = true;
                     if (hour >= 0 && hour < 24 && minute >= 0 && minute < 60) {
                         const timeString = `${hour % 12 || 12}:${minute.toString().padStart(2, '0')} ${hour >= 12 ? 'PM' : 'AM'}`;
                         setAlarm(hour, minute, `Alarm at ${timeString}`);
-                        speak(`Freshmeat your alarm set for ${timeString}`);
+                        speak(`Alarm set for ${timeString}`);
+                        addResponse(`Alarm set for ${timeString}`);
                     } else {
                         speak("Invalid time. Please try again.");
+                        addResponse("Invalid time. Please try again.");
                     }
                 } else {
-                    speak("Please Freshmeat specify the alarm time. For example, say set alarm for 7 AM");
+                    speak("Please specify the alarm time. For example, say set alarm for 7 AM");
+                    addResponse("Please specify the alarm time. For example, say set alarm for 7 AM");
                 }
                 return;
             }
@@ -458,12 +449,14 @@ let wakeWordEnabled = true;
             if (cmd.includes('show alarm') || cmd.includes('list alarm')) {
                 if (activeAlarms.length === 0) {
                     speak("You have no active alarms");
+                    addResponse("You have no active alarms");
                 } else {
                     const alarmList = activeAlarms.map(a => {
                         const timeString = `${a.hour % 12 || 12}:${a.minute.toString().padStart(2, '0')} ${a.hour >= 12 ? 'PM' : 'AM'}`;
                         return timeString;
                     }).join(', ');
                     speak(`You have ${activeAlarms.length} alarm${activeAlarms.length > 1 ? 's' : ''} set: ${alarmList}`);
+                    addResponse(`You have ${activeAlarms.length} alarm${activeAlarms.length > 1 ? 's' : ''} set: ${alarmList}`);
                 }
                 return;
             }
@@ -471,8 +464,10 @@ let wakeWordEnabled = true;
             if (cmd.includes('show timer') || cmd.includes('list timer')) {
                 if (activeTimers.length === 0) {
                     speak("You have no active timers");
+                    addResponse("You have no active timers");
                 } else {
                     speak(`You have ${activeTimers.length} active timer${activeTimers.length > 1 ? 's' : ''}`);
+                    addResponse(`You have ${activeTimers.length} active timer${activeTimers.length > 1 ? 's' : ''}`);
                 }
                 return;
             }
@@ -480,6 +475,7 @@ let wakeWordEnabled = true;
             if (cmd.includes('cancel') && (cmd.includes('alarm') || cmd.includes('all alarm'))) {
                 if (activeAlarms.length === 0) {
                     speak("No alarms to cancel");
+                    addResponse("No alarms to cancel");
                 } else {
                     activeAlarms = [];
                     if (alarmCheckInterval) {
@@ -487,7 +483,8 @@ let wakeWordEnabled = true;
                         alarmCheckInterval = null;
                     }
                     updateAlarmsDisplay();
-                    speak("All Freshmeat alarms have been cancelled");
+                    speak("All alarms have been cancelled");
+                    addResponse("All alarms have been cancelled");
                 }
                 return;
             }
@@ -495,6 +492,7 @@ let wakeWordEnabled = true;
             if (cmd.includes('cancel') && (cmd.includes('timer') || cmd.includes('all timer'))) {
                 if (activeTimers.length === 0) {
                     speak("No timers to cancel");
+                    addResponse("No timers to cancel");
                 } else {
                     activeTimers.forEach(timer => {
                         if (timer.timeout) clearTimeout(timer.timeout);
@@ -506,12 +504,14 @@ let wakeWordEnabled = true;
                     }
                     updateTimersDisplay();
                     speak("All timers have been cancelled");
+                    addResponse("All timers have been cancelled");
                 }
                 return;
             }
 
             if (cmd.includes('stop') || cmd.includes('exit') || cmd.includes('quit') || cmd.includes('bye')) {
-                speak('Goodbye Freshmeat! Have a great day!');
+                speak('Goodbye! Have a great day!');
+                addResponse('Goodbye! Have a great day!');
                 return;
             }
 
@@ -519,6 +519,7 @@ let wakeWordEnabled = true;
                 const now = new Date();
                 const timeString = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
                 speak(`The current time is ${timeString}`);
+                addResponse(`The current time is ${timeString}`);
                 return;
             }
 
@@ -526,6 +527,7 @@ let wakeWordEnabled = true;
                 const now = new Date();
                 const dateString = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
                 speak(`Today's date is ${dateString}`);
+                addResponse(`Today's date is ${dateString}`);
                 return;
             }
 
@@ -545,8 +547,10 @@ let wakeWordEnabled = true;
                     
                     const result = eval(expression);
                     speak(`The answer is ${result}`);
+                    addResponse(`The answer is ${result}`);
                 } catch (e) {
                     speak("Sorry, I couldn't calculate that.");
+                    addResponse("Sorry, I couldn't calculate that.");
                 }
                 return;
             }
@@ -564,6 +568,7 @@ let wakeWordEnabled = true;
                 ];
                 const randomJoke = jokes[Math.floor(Math.random() * jokes.length)];
                 speak(randomJoke);
+                addResponse(randomJoke);
                 return;
             }
 
@@ -581,15 +586,18 @@ let wakeWordEnabled = true;
                 for (const [site, url] of Object.entries(websites)) {
                     if (cmd.includes(site)) {
                         speak(`Opening ${site}`);
+                        addResponse(`Opening ${site}`);
                         window.open(url, '_blank');
                         return;
                     }
                 }
-                speak("Sorry Freshmeat, I don't know how to open that website.");
+                speak("Sorry, I don't know how to open that website.");
+                addResponse("Sorry, I don't know how to open that website.");
                 return;
             }
 
             speak(`You said: ${command}`);
+            addResponse(`You said: ${command}`);
         }
 
         function clearTranscript() {
