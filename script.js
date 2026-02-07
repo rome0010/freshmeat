@@ -57,50 +57,106 @@ let wakeWordEnabled = true;
             };
         }
 
-        // Vibration function
-        function vibrateDevice() {
+        // Global variables for continuous alarm
+        let alarmAudioContext = null;
+        let alarmOscillator = null;
+        let alarmGainNode = null;
+        let alarmInterval = null;
+        let vibrationInterval = null;
+
+        // Vibration function - CONTINUOUS
+        function startContinuousVibration() {
+            // Stop any existing vibration
+            stopContinuousVibration();
+            
             if ('vibrate' in navigator) {
-                // Vibrate pattern: [vibrate, pause, vibrate, pause, ...]
-                // This creates a repeating alarm-like vibration
-                navigator.vibrate([500, 200, 500, 200, 500, 200, 500]);
+                // Vibrate every 1 second continuously
+                vibrationInterval = setInterval(() => {
+                    navigator.vibrate([500, 200, 500]); // vibrate pattern
+                }, 1200);
             }
         }
 
-        // Alarm sound function
-        function playAlarmSound() {
-            // Stop any existing alarm sound
-            if (alarmAudio) {
-                alarmAudio.pause();
-                alarmAudio.currentTime = 0;
+        function stopContinuousVibration() {
+            if (vibrationInterval) {
+                clearInterval(vibrationInterval);
+                vibrationInterval = null;
             }
+            if ('vibrate' in navigator) {
+                navigator.vibrate(0); // Stop any ongoing vibration
+            }
+        }
+
+        // Alarm sound function - CONTINUOUS LOOP
+        function playAlarmSound() {
+            // Stop any existing alarm
+            stopAlarmSound();
 
             // Create audio context for alarm sound
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-
-            // Create alarm-like beeping sound
-            oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // High pitch beep
-
-            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            alarmAudioContext = new (window.AudioContext || window.webkitAudioContext)();
             
-            // Create beeping pattern
-            let time = audioContext.currentTime;
-            for (let i = 0; i < 5; i++) {
-                gainNode.gain.setValueAtTime(0.3, time);
-                gainNode.gain.setValueAtTime(0, time + 0.2);
-                time += 0.4;
+            function createBeep() {
+                alarmOscillator = alarmAudioContext.createOscillator();
+                alarmGainNode = alarmAudioContext.createGain();
+
+                alarmOscillator.connect(alarmGainNode);
+                alarmGainNode.connect(alarmAudioContext.destination);
+
+                // Create alarm-like beeping sound
+                alarmOscillator.type = 'sine';
+                alarmOscillator.frequency.setValueAtTime(800, alarmAudioContext.currentTime); // High pitch beep
+
+                // Create beeping pattern (on-off-on-off)
+                const now = alarmAudioContext.currentTime;
+                alarmGainNode.gain.setValueAtTime(0, now);
+                alarmGainNode.gain.setValueAtTime(0.3, now + 0.05);
+                alarmGainNode.gain.setValueAtTime(0.3, now + 0.2);
+                alarmGainNode.gain.setValueAtTime(0, now + 0.25);
+                alarmGainNode.gain.setValueAtTime(0.3, now + 0.4);
+                alarmGainNode.gain.setValueAtTime(0.3, now + 0.6);
+                alarmGainNode.gain.setValueAtTime(0, now + 0.65);
+
+                alarmOscillator.start(now);
+                alarmOscillator.stop(now + 1);
             }
 
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 2);
+            // Start first beep
+            createBeep();
+            
+            // Loop beep every 1 second
+            alarmInterval = setInterval(() => {
+                createBeep();
+            }, 1000);
+        }
 
-            // Store reference
-            alarmAudio = oscillator;
+        function stopAlarmSound() {
+            // Stop interval
+            if (alarmInterval) {
+                clearInterval(alarmInterval);
+                alarmInterval = null;
+            }
+            
+            // Stop oscillator
+            if (alarmOscillator) {
+                try {
+                    alarmOscillator.stop();
+                } catch (e) {
+                    // Already stopped
+                }
+                alarmOscillator = null;
+            }
+            
+            // Close audio context
+            if (alarmAudioContext) {
+                try {
+                    alarmAudioContext.close();
+                } catch (e) {
+                    // Already closed
+                }
+                alarmAudioContext = null;
+            }
+            
+            alarmGainNode = null;
         }
 
         function updateTimersDisplay() {
@@ -167,14 +223,19 @@ let wakeWordEnabled = true;
 
         function timerAlert(message) {
             speak(`Timer alert! ${message}`);
-            playAlarmSound();
-            vibrateDevice();
+            playAlarmSound(); // Continuous beeping
+            startContinuousVibration(); // Continuous vibration
             
-            // Transform mic button into STOP button
-            micButton.classList.add('alarm-active');
-            micButton.textContent = '⏰';
-            micButton.style.animation = 'pulse 1s infinite';
-            status.textContent = `⏰ ${message} - TAP TO STOP`;
+            // Transform mic button into STOP button with ringing animation
+            micButton.classList.add('ringing');
+            micButton.classList.remove('listening');
+            micButton.textContent = 'STOP';
+            micButton.style.fontSize = '24px';
+            micButton.style.fontWeight = 'bold';
+            
+            // Update status with alarm class
+            status.classList.add('alarm');
+            status.textContent = `⏰ ${message}`;
             status.style.color = '#ff0055';
             status.style.fontSize = '18px';
             status.style.fontWeight = 'bold';
@@ -248,14 +309,19 @@ let wakeWordEnabled = true;
 
         function alarmAlert(message) {
             speak(`Alarm! ${message}`);
-            playAlarmSound();
-            vibrateDevice();
+            playAlarmSound(); // Continuous beeping
+            startContinuousVibration(); // Continuous vibration
             
-            // Transform mic button into STOP button
-            micButton.classList.add('alarm-active');
-            micButton.textContent = '⏰';
-            micButton.style.animation = 'pulse 1s infinite';
-            status.textContent = `⏰ ${message} - TAP TO STOP`;
+            // Transform mic button into STOP button with ringing animation
+            micButton.classList.add('ringing');
+            micButton.classList.remove('listening');
+            micButton.textContent = 'STOP';
+            micButton.style.fontSize = '24px';
+            micButton.style.fontWeight = 'bold';
+            
+            // Update status with alarm class
+            status.classList.add('alarm');
+            status.textContent = `⏰ ${message}`;
             status.style.color = '#ff0055';
             status.style.fontSize = '18px';
             status.style.fontWeight = 'bold';
@@ -286,28 +352,24 @@ let wakeWordEnabled = true;
                 alertDiv.remove();
             }
             
-            // Stop the alarm sound (oscillator)
-            if (alarmAudio) {
-                try {
-                    alarmAudio.stop();
-                } catch (e) {
-                    // Already stopped or not started
-                }
-                alarmAudio = null;
-            }
+            // Stop the continuous alarm sound
+            stopAlarmSound();
+            
+            // Stop continuous vibration
+            stopContinuousVibration();
             
             // Stop all speech synthesis
             window.speechSynthesis.cancel();
             
-            // Stop vibration
-            if ('vibrate' in navigator) {
-                navigator.vibrate(0); // Stop vibration
-            }
-            
             // Restore mic button to normal state
-            micButton.classList.remove('alarm-active');
+            micButton.classList.remove('ringing', 'alarm-active');
             micButton.textContent = '🎤';
+            micButton.style.fontSize = '50px';
+            micButton.style.fontWeight = 'normal';
             micButton.style.animation = '';
+            
+            // Restore status to normal
+            status.classList.remove('alarm');
             status.textContent = 'Ready to listen...';
             status.style.color = '#88ffbb';
             status.style.fontSize = '';
@@ -457,161 +519,4 @@ let wakeWordEnabled = true;
 
             if (cmd.includes('show alarm') || cmd.includes('list alarm')) {
                 if (activeAlarms.length === 0) {
-                    speak("You have no active alarms");
-                    addResponse("You have no active alarms");
-                } else {
-                    const alarmList = activeAlarms.map(a => {
-                        const timeString = `${a.hour % 12 || 12}:${a.minute.toString().padStart(2, '0')} ${a.hour >= 12 ? 'PM' : 'AM'}`;
-                        return timeString;
-                    }).join(', ');
-                    speak(`You have ${activeAlarms.length} alarm${activeAlarms.length > 1 ? 's' : ''} set: ${alarmList}`);
-                    addResponse(`You have ${activeAlarms.length} alarm${activeAlarms.length > 1 ? 's' : ''} set: ${alarmList}`);
-                }
-                return;
-            }
-
-            if (cmd.includes('show timer') || cmd.includes('list timer')) {
-                if (activeTimers.length === 0) {
-                    speak("You have no active timers");
-                    addResponse("You have no active timers");
-                } else {
-                    speak(`You have ${activeTimers.length} active timer${activeTimers.length > 1 ? 's' : ''}`);
-                    addResponse(`You have ${activeTimers.length} active timer${activeTimers.length > 1 ? 's' : ''}`);
-                }
-                return;
-            }
-
-            if (cmd.includes('cancel') && (cmd.includes('alarm') || cmd.includes('all alarm'))) {
-                if (activeAlarms.length === 0) {
-                    speak("No alarms to cancel");
-                    addResponse("No alarms to cancel");
-                } else {
-                    activeAlarms = [];
-                    if (alarmCheckInterval) {
-                        clearInterval(alarmCheckInterval);
-                        alarmCheckInterval = null;
-                    }
-                    updateAlarmsDisplay();
-                    speak("All alarms have been cancelled");
-                    addResponse("All alarms have been cancelled");
-                }
-                return;
-            }
-
-            if (cmd.includes('cancel') && (cmd.includes('timer') || cmd.includes('all timer'))) {
-                if (activeTimers.length === 0) {
-                    speak("No timers to cancel");
-                    addResponse("No timers to cancel");
-                } else {
-                    activeTimers.forEach(timer => {
-                        if (timer.timeout) clearTimeout(timer.timeout);
-                    });
-                    activeTimers = [];
-                    if (timerUpdateInterval) {
-                        clearInterval(timerUpdateInterval);
-                        timerUpdateInterval = null;
-                    }
-                    updateTimersDisplay();
-                    speak("All timers have been cancelled");
-                    addResponse("All timers have been cancelled");
-                }
-                return;
-            }
-
-            if (cmd.includes('stop') || cmd.includes('exit') || cmd.includes('quit') || cmd.includes('bye')) {
-                speak('Goodbye! Have a great day!');
-                addResponse('Goodbye! Have a great day!');
-                return;
-            }
-
-            if (cmd.includes('time')) {
-                const now = new Date();
-                const timeString = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-                speak(`The current time is ${timeString}`);
-                addResponse(`The current time is ${timeString}`);
-                return;
-            }
-
-            if (cmd.includes('date') || cmd.includes('today')) {
-                const now = new Date();
-                const dateString = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-                speak(`Today's date is ${dateString}`);
-                addResponse(`Today's date is ${dateString}`);
-                return;
-            }
-
-            if (cmd.match(/\d+/) && (cmd.includes('+') || cmd.includes('-') || cmd.includes('*') || cmd.includes('/') || 
-                cmd.includes('x') || cmd.includes('plus') || cmd.includes('minus') || cmd.includes('times') || 
-                cmd.includes('multiply') || cmd.includes('divide') || cmd.includes('calculate') || cmd.includes('compute'))) {
-                
-                try {
-                    let expression = cmd;
-                    expression = expression.replace(/what is|calculate|compute|can you|please|equals?/gi, '');
-                    expression = expression.replace(/plus|add/gi, '+');
-                    expression = expression.replace(/minus|subtract/gi, '-');
-                    expression = expression.replace(/times|multiply|multiplied by/gi, '*');
-                    expression = expression.replace(/divided by|divide|over/gi, '/');
-                    expression = expression.replace(/\s+x\s+/gi, '*');
-                    expression = expression.trim();
-                    
-                    const result = eval(expression);
-                    speak(`The answer is ${result}`);
-                    addResponse(`The answer is ${result}`);
-                } catch (e) {
-                    speak("Sorry, I couldn't calculate that.");
-                    addResponse("Sorry, I couldn't calculate that.");
-                }
-                return;
-            }
-
-            if (cmd.includes('joke') || cmd.includes('funny')) {
-                const jokes = [
-                    "Why do programmers prefer dark mode? Because light attracts bugs!",
-                    "Why did the developer go broke? Because he used up all his cache!",
-                    "What do you call a programmer from Finland? Nerdic!",
-                    "Why do Java developers wear glasses? Because they don't C sharp!",
-                    "How many programmers does it take to change a light bulb? None, that's a hardware problem!",
-                    "Why did the computer show up at work late? It had a hard drive!",
-                    "What's a computer's favorite snack? Microchips!",
-                    "Why was the JavaScript developer sad? Because he didn't Node how to Express himself!"
-                ];
-                const randomJoke = jokes[Math.floor(Math.random() * jokes.length)];
-                speak(randomJoke);
-                addResponse(randomJoke);
-                return;
-            }
-
-            if (cmd.includes('open')) {
-                const websites = {
-                    'youtube': 'https://www.youtube.com',
-                    'google': 'https://www.google.com',
-                    'facebook': 'https://www.facebook.com',
-                    'instagram': 'https://www.instagram.com',
-                    'twitter': 'https://www.twitter.com',
-                    'gmail': 'https://mail.google.com',
-                    'messenger': 'https://messenger.com'
-                };
-
-                for (const [site, url] of Object.entries(websites)) {
-                    if (cmd.includes(site)) {
-                        speak(`Opening ${site}`);
-                        addResponse(`Opening ${site}`);
-                        window.open(url, '_blank');
-                        return;
-                    }
-                }
-                speak("Sorry, I don't know how to open that website.");
-                addResponse("Sorry, I don't know how to open that website.");
-                return;
-            }
-
-            speak(`You said: ${command}`);
-            addResponse(`You said: ${command}`);
-        }
-
-        function clearTranscript() {
-            transcript.innerHTML = '<p style="text-align: center; color: #88ffbb;">Your conversation will appear here...</p>';
-        }
-
-        updateTimersDisplay();
-        updateAlarmsDisplay();
+            
