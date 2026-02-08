@@ -72,17 +72,33 @@
             box-shadow: 0 0 50px rgba(255, 0, 85, 0.7), 0 10px 30px rgba(255, 0, 85, 0.5);
         }
 
-        .mic-button.alarm-active {
-            animation: pulse 1s infinite;
-            background: linear-gradient(135deg, #ff0055 0%, #cc0044 100%);
-            border-color: #ff0055;
-            box-shadow: 0 0 60px rgba(255, 0, 85, 0.9), 0 15px 40px rgba(255, 0, 85, 0.7);
-            font-size: 60px;
+        /* RINGING ALARM ANIMATION */
+        .mic-button.ringing {
+            animation: ring 0.5s infinite;
+            background: linear-gradient(135deg, #ff0055 0%, #ff3377 100%);
+            border: 5px solid #ff0055;
+            box-shadow: 0 0 80px rgba(255, 0, 85, 1), 0 0 120px rgba(255, 0, 85, 0.8);
+            color: white;
         }
 
         @keyframes pulse {
             0%, 100% { transform: scale(1); }
             50% { transform: scale(1.1); box-shadow: 0 0 70px rgba(255, 0, 85, 0.9); }
+        }
+
+        @keyframes ring {
+            0%, 100% { 
+                transform: rotate(0deg) scale(1); 
+                box-shadow: 0 0 80px rgba(255, 0, 85, 1), 0 0 120px rgba(255, 0, 85, 0.8);
+            }
+            10%, 30%, 50%, 70%, 90% { 
+                transform: rotate(-10deg) scale(1.1); 
+                box-shadow: 0 0 100px rgba(255, 0, 85, 1), 0 0 150px rgba(255, 0, 85, 1);
+            }
+            20%, 40%, 60%, 80% { 
+                transform: rotate(10deg) scale(1.1); 
+                box-shadow: 0 0 100px rgba(255, 0, 85, 1), 0 0 150px rgba(255, 0, 85, 1);
+            }
         }
 
         .status {
@@ -109,6 +125,19 @@
             border-color: #00c8ff;
             color: #00c8ff;
             box-shadow: 0 0 15px rgba(0, 200, 255, 0.3);
+        }
+
+        .status.alarm {
+            background: rgba(255, 0, 85, 0.2);
+            border: 2px solid #ff0055;
+            color: #ff0055;
+            box-shadow: 0 0 30px rgba(255, 0, 85, 0.5);
+            animation: pulse-status 1s infinite;
+        }
+
+        @keyframes pulse-status {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
         }
 
         .active-list {
@@ -185,6 +214,22 @@
             margin: 10px 0;
             line-height: 1.6;
             color: #ccffdd;
+        }
+
+        .message {
+            margin: 10px 0;
+            padding: 8px;
+            border-radius: 8px;
+        }
+
+        .user-message {
+            background: rgba(0, 255, 136, 0.1);
+            border-left: 3px solid #00ff88;
+        }
+
+        .assistant-message {
+            background: rgba(102, 255, 170, 0.1);
+            border-left: 3px solid #66ffaa;
         }
 
         .user-text {
@@ -295,23 +340,6 @@
             background: #00cc6a;
         }
 
-        .stop-alert-btn {
-            margin-top: 15px;
-            padding: 10px 20px;
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid white;
-            border-radius: 8px;
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .stop-alert-btn:hover {
-            background: rgba(255, 255, 255, 0.4);
-            transform: scale(1.05);
-        }
-
         @media (max-width: 480px) {
             .container {
                 padding: 20px;
@@ -327,4 +355,3 @@
                 font-size: 40px;
             }
         }
-    
